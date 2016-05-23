@@ -24,6 +24,8 @@
 	String orderString = " ORDER BY name ";
 	String filter = request.getParameter("filter");
 	String filterString = "All";
+	String rowNext = request.getParameter("rowNext");
+	String colNext = request.getParameter("colNext");
 	
 	if (rows == null)
 		session.setAttribute("rows", "Customers");
@@ -40,26 +42,56 @@
 			orderString = " ORDER BY name ";
 	}
 	
-	if (filter == null)
+	if (filter == null || filter.equals("All"))
 		session.setAttribute("filter", "All");
 	else {
-		session.setAttribute("filter", filter);
 		filterString = filter;
+		Statement stmt = conn.createStatement();
+		ResultSet rs = stmt.executeQuery("SELECT name FROM categories WHERE id = " + filter);
+		if (rs.next())
+			session.setAttribute("filter", rs.getString("name"));
 	}
 	
 	if (session.getAttribute("run") == null)
 		session.setAttribute("run", "not");
 	
+	if (session.getAttribute("allowedToEdit") == null)
+		session.setAttribute("allowedToEdit", "yes");
+	
+	if (rowNext == null) 
+		session.setAttribute("rowNum", 0);
+	
+	else if (rowNext.equals("clicked")) {
+		session.setAttribute("rowNum", (Integer)session.getAttribute("rowNum") + 20);
+		session.setAttribute("allowedToEdit", "no");
+	}
+	
+	if (colNext == null) 
+		session.setAttribute("colNum", 0);
+	
+	else if (colNext.equals("clicked")) {
+		session.setAttribute("colNum", (Integer)session.getAttribute("colNum") + 10);
+		session.setAttribute("allowedToEdit", "no");
+	}
+	
+	Statement stmtP = conn.createStatement();
+	ResultSet rsP = stmtP.executeQuery("SELECT name, COUNT(*) as num FROM products GROUP BY name");
+	if (rsP.next()) 
+		session.setAttribute("productNum", rsP.getInt("num"));
+	
+	Statement stmtC = conn.createStatement();
+	ResultSet rsC = stmtC.executeQuery("SELECT name, COUNT(*) as num FROM users GROUP BY name");
+	if (rsC.next()) 
+		session.setAttribute("customerNum", rsC.getInt("num"));
+	
 	if ("POST".equalsIgnoreCase(request.getMethod())) {
 		String action = request.getParameter("action");
 		if (action != null && action.equals("runQuery")) {
 			session.setAttribute("run", action);
-			response.sendRedirect("orders.jsp");
 		}
 	}
 	
-	Statement stmt = conn.createStatement();
-	ResultSet rs = stmt.executeQuery("SELECT id, name FROM categories");
+	
 	
 %>
 
@@ -74,6 +106,11 @@
 	</ul>
 </div>
 <div>
+
+<% if (((String)session.getAttribute("allowedToEdit")).equals("yes")) { 
+	Statement stmt1 = conn.createStatement();
+	ResultSet rs1 = stmt1.executeQuery("SELECT id, name FROM categories");
+%>
 <div>
 <form action="orders.jsp" method="POST">
 	<input type="hidden" name="action" value="runQuery"/>
@@ -90,31 +127,28 @@
 	<label for="Filter">Sales Filtering Option:</label>
   	<select name="filter" id="filter" class="form-control">
   	<option value="<%=session.getAttribute("filter") %>"><%=session.getAttribute("filter") %></option>
-  	<% while (rs.next()) { 	
-  		if (!rs.getString("id").equals((String)session.getAttribute("filter"))) { %>
-  		<option value="<%=rs.getString("id")%>"><%=rs.getString("name")%></option>
-  	<%  }
-  	}
-  	if (!((String)session.getAttribute("filter")).equals("All")) %>
+  	<% while (rs1.next()) {  %>
+  		<option value="<%=rs1.getString("id")%>"><%=rs1.getString("name")%></option>
+  	<% } %>
 		<option value="All">All</option>
 	</select>
 	<input class="btn btn-primary" type="submit" value="Run Query"/>
 </form>
 </div>
-
+<% } %>
 <% if (((String)session.getAttribute("run")).equals("runQuery")) { 
 	
 	Statement stmt2 = conn.createStatement();
 	ResultSet rs2;
 	
 	if (filterString.equals("All")) {
-		rs2 = stmt.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+		rs2 = stmt2.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
 				+ "AS totalsales FROM orders GROUP BY product_id) SELECT products.name AS name, col_header.totalsales "
 				+ "AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id "
 				+ orderString + "LIMIT 10");
 	}
 	else {
-		rs2 = stmt.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+		rs2 = stmt2.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
 				+ "AS totalsales FROM products INNER JOIN orders on orders.product_id = products.id WHERE "
 				+ "products.category_id = " + filterString + " GROUP BY product_id) SELECT products.name AS name, "
 				+ "col_header.totalsales AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id"
@@ -148,13 +182,13 @@
 			<th><%=rs3.getString("name") %>(<%=rs3.getFloat("totalsales") %>)</th>
 	<% 		
 	if (filterString.equals("All")) {
-		rs2 = stmt.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+		rs2 = stmt2.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
 				+ "AS totalsales FROM orders GROUP BY product_id) SELECT products.id AS id, products.name AS name, col_header.totalsales "
 				+ "AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id "
 				+ orderString + "LIMIT 10");
 	}
 	else {
-		rs2 = stmt.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+		rs2 = stmt2.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
 				+ "AS totalsales FROM products INNER JOIN orders on orders.product_id = products.id WHERE "
 				+ "products.category_id = " + filterString + " GROUP BY product_id) SELECT products.id AS id, products.name AS name, "
 				+ "col_header.totalsales AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id"
@@ -178,5 +212,21 @@
 	<% }
 } %>
 </table>
+<div class="form-group">
+	<form action="orders.jsp" method="POST">
+	<% if ((Integer)session.getAttribute("rowNum") + 20 <= (Integer)session.getAttribute("customerNum")) { %>
+		<td>
+			<input type="hidden" name="rowNext" value="clicked" />
+			<input class="btn btn-primary" type="submit" value="Next 20 Customers" />
+		</td> 
+	<% } 
+		if ((Integer)session.getAttribute("colNum") + 10 <= (Integer)session.getAttribute("productNum")) { %>
+		<td>
+			<input type="hidden" name="colNext" value="clicked" />
+			<input class="btn btn-primary" type="submit" value="Next 10 Products" />
+		</td>
+	<% } %>
+	</form>
+</div>
 </body>
 </html>
