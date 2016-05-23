@@ -19,17 +19,47 @@
 	}
 	catch (Exception e) {}
 	
-	if ("POST".equalsIgnoreCase(request.getMethod())) {
-		String rows = request.getParameter("Rows");
-		if (rows != null && rows.equals("States"))
-			response.sendRedirect("stateProducts.jsp");
+	String rows = request.getParameter("rows");
+	String order = request.getParameter("order");
+	String orderString = " ORDER BY name ";
+	String filter = request.getParameter("filter");
+	String filterString = "All";
+	
+	if (rows == null)
+		session.setAttribute("rows", "Customers");
+	else 
+		session.setAttribute("rows", rows);
+	
+	if (order == null)
+		session.setAttribute("order", "Alphabetical");
+	else {
+		session.setAttribute("order", order);
+		if (order.equals("Top-K"))
+			orderString = " ORDER BY totalsales DESC ";
+		else
+			orderString = " ORDER BY name ";
 	}
 	
-	String order = request.getParameter("Order");
+	if (filter == null)
+		session.setAttribute("filter", "All");
+	else {
+		session.setAttribute("filter", filter);
+		filterString = filter;
+	}
+	
+	if (session.getAttribute("run") == null)
+		session.setAttribute("run", "not");
+	
+	if ("POST".equalsIgnoreCase(request.getMethod())) {
+		String action = request.getParameter("action");
+		if (action != null && action.equals("runQuery")) {
+			session.setAttribute("run", action);
+			response.sendRedirect("orders.jsp");
+		}
+	}
+	
 	Statement stmt = conn.createStatement();
-	Statement stmt2 = conn.createStatement();
-	ResultSet rs = stmt.executeQuery("SELECT * FROM products ORDER BY name LIMIT 20");
-	ResultSet rs2 = stmt2.executeQuery("SELECT name FROM categories");
+	ResultSet rs = stmt.executeQuery("SELECT id, name FROM categories");
 	
 %>
 
@@ -46,25 +76,56 @@
 <div>
 <div>
 <form action="orders.jsp" method="POST">
+	<input type="hidden" name="action" value="runQuery"/>
   	<label for="Rows">Rows:</label>
-  	<select name="Rows" id="rows" class="form-control">
+  	<select name="rows" id="rows" class="form-control">
 	    <option value="Customers">Customers</option>
 	    <option value="States">States</option>
 	</select>	
   	<label for="Order">Order:</label>
-  	<select name="Order" id="order" class="form-control">
+  	<select name="order" id="order" class="form-control">
 	    <option value="Alphabetical">Alphabetical</option>
 	    <option value="Top-K">Top-K</option>
 	</select>
-	<label for="Sales">Sales Filtering Option:</label>
-  	<select name="Sales" id="sales" class="form-control">
-  	<% while (rs2.next()) { %>
-  		<option value="<%=rs2.getString("name")%>"><%=rs2.getString("name")%></option>
-  	<% } %>
+	<label for="Filter">Sales Filtering Option:</label>
+  	<select name="filter" id="filter" class="form-control">
+  	<option value="<%=session.getAttribute("filter") %>"><%=session.getAttribute("filter") %></option>
+  	<% while (rs.next()) { 	
+  		if (!rs.getString("id").equals((String)session.getAttribute("filter"))) { %>
+  		<option value="<%=rs.getString("id")%>"><%=rs.getString("name")%></option>
+  	<%  }
+  	}
+  	if (!((String)session.getAttribute("filter")).equals("All")) %>
+		<option value="All">All</option>
 	</select>
-	<input class="btn btn-primary" type="submit" name="submit" value="Run Query"/>
+	<input class="btn btn-primary" type="submit" value="Run Query"/>
 </form>
 </div>
 
+<% if (((String)session.getAttribute("run")).equals("runQuery")) { 
+	
+	Statement stmt2 = conn.createStatement();
+	ResultSet rs2;
+	
+	if (filterString.equals("All")) {
+		rs2 = stmt.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+				+ "AS totalsales FROM orders GROUP BY product_id) SELECT products.name AS name, col_header.totalsales "
+				+ "AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id "
+				+ orderString + "LIMIT 10");
+	}
+	else {
+		rs2 = stmt.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+				+ "AS totalsales FROM orders INNER JOIN products on orders.product_id = products.id WHERE "
+				+ "products.category_id = " + filterString + " GROUP BY product_id) SELECT products.name AS name, "
+				+ "col_header.totalsales AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id"
+				+ orderString + "LIMIT 10");
+	} %>
+<table class="table table-striped">
+	<th></th>
+	<% while (rs2.next()) { %>
+		<th><%=rs2.getString("name")%> (<%=rs2.getFloat("totalsales") %>)</th>	
+	<% } 
+	} %>
+</table>
 </body>
 </html>
