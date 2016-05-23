@@ -26,6 +26,16 @@
 	String filterString = "All";
 	String rowNext = request.getParameter("rowNext");
 	String colNext = request.getParameter("colNext");
+	String clear = request.getParameter("clear");
+
+	if (clear != null && clear.equals("clicked")) {
+		session.setAttribute("allowedToEdit", "yes");
+		session.setAttribute("run", "not");
+		session.setAttribute("rowNum", 0);
+		session.setAttribute("colNum", 0);
+		session.setAttribute("productNum", 0);
+		session.setAttribute("customerNum", 0);
+	}
 	
 	if (rows == null)
 		session.setAttribute("rows", "Customers");
@@ -58,29 +68,35 @@
 	if (session.getAttribute("allowedToEdit") == null)
 		session.setAttribute("allowedToEdit", "yes");
 	
-	if (rowNext == null) 
+	if (session.getAttribute("rowNum") == null) 
 		session.setAttribute("rowNum", 0);
 	
-	else if (rowNext.equals("clicked")) {
+	if (rowNext != null && rowNext.equals("clicked")) {
 		session.setAttribute("rowNum", (Integer)session.getAttribute("rowNum") + 20);
 		session.setAttribute("allowedToEdit", "no");
 	}
 	
-	if (colNext == null) 
+	if (session.getAttribute("colNum") == null) 
 		session.setAttribute("colNum", 0);
 	
-	else if (colNext.equals("clicked")) {
+	if (colNext != null && colNext.equals("clicked")) {
 		session.setAttribute("colNum", (Integer)session.getAttribute("colNum") + 10);
 		session.setAttribute("allowedToEdit", "no");
 	}
 	
+	if(session.getAttribute("productNum") == null)
+		session.setAttribute("productNum", 0);
+	
+	if(session.getAttribute("customerNum") == null)
+		session.setAttribute("customerNum", 0);
+	
 	Statement stmtP = conn.createStatement();
-	ResultSet rsP = stmtP.executeQuery("SELECT name, COUNT(*) as num FROM products GROUP BY name");
+	ResultSet rsP = stmtP.executeQuery("SELECT COUNT(*) as num FROM (SELECT name FROM products GROUP BY name) product");
 	if (rsP.next()) 
 		session.setAttribute("productNum", rsP.getInt("num"));
 	
 	Statement stmtC = conn.createStatement();
-	ResultSet rsC = stmtC.executeQuery("SELECT name, COUNT(*) as num FROM users GROUP BY name");
+	ResultSet rsC = stmtC.executeQuery("SELECT COUNT(*) as num FROM (SELECT name FROM users GROUP BY name) customer");
 	if (rsC.next()) 
 		session.setAttribute("customerNum", rsC.getInt("num"));
 	
@@ -90,9 +106,7 @@
 			session.setAttribute("run", action);
 		}
 	}
-	
-	
-	
+
 %>
 
 <body>
@@ -154,6 +168,7 @@
 				+ "col_header.totalsales AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id"
 				+ orderString + "LIMIT 10");
 	} %>
+
 <table class="table table-striped">
 	<th></th>
 	<% while (rs2.next()) { %>
@@ -210,23 +225,32 @@
 		}
 	 %> </tr>
 	<% }
-} %>
+%>
 </table>
-<div class="form-group">
+<div>
 	<form action="orders.jsp" method="POST">
-	<% if ((Integer)session.getAttribute("rowNum") + 20 <= (Integer)session.getAttribute("customerNum")) { %>
-		<td>
-			<input type="hidden" name="rowNext" value="clicked" />
-			<input class="btn btn-primary" type="submit" value="Next 20 Customers" />
-		</td> 
-	<% } 
-		if ((Integer)session.getAttribute("colNum") + 10 <= (Integer)session.getAttribute("productNum")) { %>
+	<% if ((Integer)session.getAttribute("colNum") + 10 <= (Integer)session.getAttribute("productNum")) { %>
 		<td>
 			<input type="hidden" name="colNext" value="clicked" />
 			<input class="btn btn-primary" type="submit" value="Next 10 Products" />
 		</td>
 	<% } %>
 	</form>
+	<form action="orders.jsp" method="POST">
+	<% if ((Integer)session.getAttribute("rowNum") + 20 <= (Integer)session.getAttribute("customerNum")) { %>
+		<td>
+			<input type="hidden" name="rowNext" value="clicked" />
+			<input class="btn btn-primary" type="submit" value="Next 20 Customers" />
+		</td> 
+	<% } %>
+	</form>
+	<form action="orders.jsp" method="POST">
+		<td>
+			<input type="hidden" name="clear" value="clicked" />
+			<input class="btn btn-primary" type="submit" value="Clear" />
+		</td> 	
+	</form>
 </div>
+<% } %>
 </body>
 </html>
