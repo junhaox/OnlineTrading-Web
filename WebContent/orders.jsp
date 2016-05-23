@@ -115,7 +115,7 @@
 	}
 	else {
 		rs2 = stmt.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
-				+ "AS totalsales FROM orders INNER JOIN products on orders.product_id = products.id WHERE "
+				+ "AS totalsales FROM products INNER JOIN orders on orders.product_id = products.id WHERE "
 				+ "products.category_id = " + filterString + " GROUP BY product_id) SELECT products.name AS name, "
 				+ "col_header.totalsales AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id"
 				+ orderString + "LIMIT 10");
@@ -124,8 +124,59 @@
 	<th></th>
 	<% while (rs2.next()) { %>
 		<th><%=rs2.getString("name")%> (<%=rs2.getFloat("totalsales") %>)</th>	
-	<% } 
-	} %>
+	<% }
+	
+	Statement stmt3 = conn.createStatement();
+	ResultSet rs3;
+	
+	if (filterString.equals("All")) {
+		rs3 = stmt3.executeQuery("WITH row_header(id, name, totalsales) AS (SELECT users.id AS id, users.name AS name, "
+				+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders on users.id = orders.user_id "
+				+ "GROUP BY users.id) SELECT DISTINCT LEFT(users.name, 10) AS name, users.id AS id, row_header.totalsales AS totalsales FROM users "
+				+ "INNER JOIN row_header ON row_header.name = users.name" + orderString + "LIMIT 20");
+	}
+	else {
+		rs3 = stmt3.executeQuery("WITH row_header(id, name, totalsales) AS (SELECT users.id AS id, users.name AS name, "
+				+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders on users.id = orders.user_id INNER JOIN "
+				+ "products on orders.product_id = products.id WHERE products.category_id = " + filterString
+				+ " GROUP BY users.id) SELECT DISTINCT LEFT(users.name, 10) AS name, users.id AS id, row_header.totalsales AS totalsales FROM users "
+				+ "INNER JOIN row_header ON row_header.name = users.name" + orderString + "LIMIT 20");
+	}
+	
+	while (rs3.next()) { %>
+		<tr>
+			<th><%=rs3.getString("name") %>(<%=rs3.getFloat("totalsales") %>)</th>
+	<% 		
+	if (filterString.equals("All")) {
+		rs2 = stmt.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+				+ "AS totalsales FROM orders GROUP BY product_id) SELECT products.id AS id, products.name AS name, col_header.totalsales "
+				+ "AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id "
+				+ orderString + "LIMIT 10");
+	}
+	else {
+		rs2 = stmt.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+				+ "AS totalsales FROM products INNER JOIN orders on orders.product_id = products.id WHERE "
+				+ "products.category_id = " + filterString + " GROUP BY product_id) SELECT products.id AS id, products.name AS name, "
+				+ "col_header.totalsales AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id"
+				+ orderString + "LIMIT 10");
+	}
+	
+	while (rs2.next()) {
+		Statement stmt4 = conn.createStatement();
+		ResultSet rs4 = stmt4.executeQuery("SELECT SUM(orders.price) AS totalprices FROM orders where orders.product_id = "
+							+ rs2.getString("id") + " AND orders.user_id = " + rs3.getString("id") + " GROUP BY "
+							+ "orders.product_id, orders.user_id");
+		
+		if (rs4.next()) { %>
+			<td><%=rs4.getFloat("totalprices")%></td>
+		<% }
+		else {%>
+			<td>0</td>
+		<% }
+		}
+	 %> </tr>
+	<% }
+} %>
 </table>
 </body>
 </html>
