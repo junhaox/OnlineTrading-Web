@@ -21,9 +21,9 @@
 	
 	String rows = request.getParameter("rows");
 	String order = request.getParameter("order");
-	String orderString = " ORDER BY name ";
+	String orderString = (String)session.getAttribute("orderString");
 	String filter = request.getParameter("filter");
-	String filterString = "All";
+	String filterString = (String)session.getAttribute("filterString");
 	String rowNext = request.getParameter("rowNext");
 	String colNext = request.getParameter("colNext");
 	String clear = request.getParameter("clear");
@@ -42,20 +42,30 @@
 	else 
 		session.setAttribute("rows", rows);
 	
-	if (order == null)
+	if (order == null) {
 		session.setAttribute("order", "Alphabetical");
+		session.setAttribute("orderString", " ORDER BY name ");
+	}
 	else {
 		session.setAttribute("order", order);
-		if (order.equals("Top-K"))
+		if (order.equals("Top-K")) {
 			orderString = " ORDER BY totalsales DESC ";
-		else
+			session.setAttribute("orderString", " ORDER BY totalsales DESC ");
+		}
+		else {
 			orderString = " ORDER BY name ";
+			session.setAttribute("orderString", " ORDER BY name ");
+		}
 	}
 	
-	if (filter == null || filter.equals("All"))
+	if (filter == null || filter.equals("All")) {
 		session.setAttribute("filter", "All");
+		session.setAttribute("filterString", filterString);
+	}
+	
 	else {
 		filterString = filter;
+		session.setAttribute("filterString", filterString);
 		Statement stmt = conn.createStatement();
 		ResultSet rs = stmt.executeQuery("SELECT name FROM categories WHERE id = " + filter);
 		if (rs.next())
