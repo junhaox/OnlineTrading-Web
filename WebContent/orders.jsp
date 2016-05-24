@@ -21,9 +21,7 @@
 	
 	String rows = request.getParameter("rows");
 	String order = request.getParameter("order");
-	String orderString = (String)session.getAttribute("orderString");
 	String filter = request.getParameter("filter");
-	String filterString = (String)session.getAttribute("filterString");
 	String rowNext = request.getParameter("rowNext");
 	String colNext = request.getParameter("colNext");
 	String clear = request.getParameter("clear");
@@ -37,35 +35,52 @@
 		session.setAttribute("customerNum", 0);
 	}
 	
-	if (order == null) {
-		session.setAttribute("order", "Alphabetical");
-		session.setAttribute("orderString", " ORDER BY name ");
-	}
-	else {
-		session.setAttribute("order", order);
-		if (order.equals("Top-K")) {
-			orderString = " ORDER BY totalsales DESC ";
-			session.setAttribute("orderString", " ORDER BY totalsales DESC ");
+	if (rows != null) {
+		if (rows.equals("Customers")) {
+			session.setAttribute("rowsString", "Customers");
+			session.setAttribute("rows", "Customers");	
 		}
 		else {
-			orderString = " ORDER BY name ";
-			session.setAttribute("orderString", " ORDER BY name ");
+			session.setAttribute("rowsString", "States");
+			session.setAttribute("rows", "States");
 		}
 	}
 	
-	if (filter == null || filter.equals("All")) {
-		session.setAttribute("filter", "All");
-		filterString = "All";
-		session.setAttribute("filterString", filterString);
+	if (order != null) {
+		session.setAttribute("order", order);
+		if (order.equals("Top-K")) {
+			session.setAttribute("orderString", " ORDER BY totalsales DESC ");
+			session.setAttribute("order", "Alphabetical");
+		}
+		else {
+			session.setAttribute("orderString", " ORDER BY name ");
+			session.setAttribute("order", "Top-K");
+		}
 	}
-	else {
-		filterString = filter;
-		session.setAttribute("filterString", filterString);
-		Statement stmt = conn.createStatement();
-		ResultSet rs = stmt.executeQuery("SELECT name FROM categories WHERE id = " + filter);
-		if (rs.next())
-			session.setAttribute("filter", rs.getString("name"));
+	
+	if (filter != null) {
+		if (filter.equals("All")) {
+			session.setAttribute("filter", "All");
+			session.setAttribute("filterString", "All");
+		}
+		
+		else {
+			session.setAttribute("filterString", filter);
+			Statement stmt = conn.createStatement();
+			ResultSet rs = stmt.executeQuery("SELECT name FROM categories WHERE id = " + filter);
+			if (rs.next())
+				session.setAttribute("filter", rs.getString("name"));
+		}
 	}
+	
+	if (session.getAttribute("rowsString") == null)
+		session.setAttribute("rowsString", "Customers");
+	
+	if (session.getAttribute("orderString") == null)
+		session.setAttribute("orderString", "Alphabetical");
+	
+	if (session.getAttribute("filterString") == null)
+		session.setAttribute("filterString", "All");
 	
 	if (session.getAttribute("run") == null)
 		session.setAttribute("run", "not");
@@ -113,15 +128,11 @@
 			session.setAttribute("rowNum", 0);
 		}
 	}
+
+	String rowsString = (String)session.getAttribute("rowsString");
+	String orderString = (String)session.getAttribute("orderString");
+	String filterString = (String)session.getAttribute("filterString");
 	
-	if (rows == null || rows.equals("Customers"))
-		session.setAttribute("rows", "Customers");
-	else {
-		session.setAttribute("rows", "States");
-		response.sendRedirect("stateOrders.jsp");
-	}
-
-
 %>
 
 <body>
@@ -167,21 +178,25 @@
 <% } %>
 <% if (((String)session.getAttribute("run")).equals("runQuery")) { 
 	
+	String noFilter = "WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+			+ "AS totalsales FROM orders GROUP BY product_id) SELECT products.id AS id, products.name AS name, col_header.totalsales "
+			+ "AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id "
+			+ orderString + "LIMIT 10 OFFSET " + session.getAttribute("colNum");
+	
+	String withFilter = "WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+			+ "AS totalsales FROM products INNER JOIN orders on orders.product_id = products.id WHERE "
+			+ "products.category_id = " + filterString + " GROUP BY product_id) SELECT products.id AS id, products.name AS name, "
+			+ "col_header.totalsales AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id"
+			+ orderString + "LIMIT 10 OFFSET " + session.getAttribute("colNum");
+	
 	Statement stmt2 = conn.createStatement();
 	ResultSet rs2;
 	
 	if (filterString.equals("All")) {
-		rs2 = stmt2.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
-				+ "AS totalsales FROM orders GROUP BY product_id) SELECT products.name AS name, col_header.totalsales "
-				+ "AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id "
-				+ orderString + "LIMIT 10");
+		rs2 = stmt2.executeQuery(noFilter);
 	}
 	else {
-		rs2 = stmt2.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
-				+ "AS totalsales FROM products INNER JOIN orders on orders.product_id = products.id WHERE "
-				+ "products.category_id = " + filterString + " GROUP BY product_id) SELECT products.name AS name, "
-				+ "col_header.totalsales AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id"
-				+ orderString + "LIMIT 10");
+		rs2 = stmt2.executeQuery(withFilter);
 	} %>
 
 <table class="table table-striped">
@@ -190,21 +205,25 @@
 		<th><%=rs2.getString("name")%> (<%=rs2.getFloat("totalsales") %>)</th>	
 	<% }
 	
+	String noFilter2 = "WITH row_header(id, name, totalsales) AS (SELECT users.id AS id, users.name AS name, "
+			+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders on users.id = orders.user_id "
+			+ "GROUP BY users.id) SELECT DISTINCT LEFT(users.name, 10) AS name, users.id AS id, row_header.totalsales AS totalsales FROM users "
+			+ "INNER JOIN row_header ON row_header.name = users.name" + orderString + "LIMIT 20 OFFSET " + session.getAttribute("rowNum");
+	
+	String withFilter2 = "WITH row_header(id, name, totalsales) AS (SELECT users.id AS id, users.name AS name, "
+			+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders on users.id = orders.user_id INNER JOIN "
+			+ "products on orders.product_id = products.id WHERE products.category_id = " + filterString
+			+ " GROUP BY users.id) SELECT DISTINCT LEFT(users.name, 10) AS name, users.id AS id, row_header.totalsales AS totalsales FROM users "
+			+ "INNER JOIN row_header ON row_header.name = users.name" + orderString + "LIMIT 20 OFFSET " + session.getAttribute("rowNum");
+	
 	Statement stmt3 = conn.createStatement();
 	ResultSet rs3;
 	
 	if (filterString.equals("All")) {
-		rs3 = stmt3.executeQuery("WITH row_header(id, name, totalsales) AS (SELECT users.id AS id, users.name AS name, "
-				+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders on users.id = orders.user_id "
-				+ "GROUP BY users.id) SELECT DISTINCT LEFT(users.name, 10) AS name, users.id AS id, row_header.totalsales AS totalsales FROM users "
-				+ "INNER JOIN row_header ON row_header.name = users.name" + orderString + "LIMIT 20");
+		rs3 = stmt3.executeQuery(noFilter2);
 	}
 	else {
-		rs3 = stmt3.executeQuery("WITH row_header(id, name, totalsales) AS (SELECT users.id AS id, users.name AS name, "
-				+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders on users.id = orders.user_id INNER JOIN "
-				+ "products on orders.product_id = products.id WHERE products.category_id = " + filterString
-				+ " GROUP BY users.id) SELECT DISTINCT LEFT(users.name, 10) AS name, users.id AS id, row_header.totalsales AS totalsales FROM users "
-				+ "INNER JOIN row_header ON row_header.name = users.name" + orderString + "LIMIT 20");
+		rs3 = stmt3.executeQuery(withFilter2);
 	}
 	
 	while (rs3.next()) { %>
@@ -212,17 +231,10 @@
 			<th><%=rs3.getString("name") %>(<%=rs3.getFloat("totalsales") %>)</th>
 	<% 		
 	if (filterString.equals("All")) {
-		rs2 = stmt2.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
-				+ "AS totalsales FROM orders GROUP BY product_id) SELECT products.id AS id, products.name AS name, col_header.totalsales "
-				+ "AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id "
-				+ orderString + "LIMIT 10");
+		rs2 = stmt2.executeQuery(noFilter);
 	}
 	else {
-		rs2 = stmt2.executeQuery("WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
-				+ "AS totalsales FROM products INNER JOIN orders on orders.product_id = products.id WHERE "
-				+ "products.category_id = " + filterString + " GROUP BY product_id) SELECT products.id AS id, products.name AS name, "
-				+ "col_header.totalsales AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id"
-				+ orderString + "LIMIT 10");
+		rs2 = stmt2.executeQuery(withFilter);
 	}
 	
 	while (rs2.next()) {
