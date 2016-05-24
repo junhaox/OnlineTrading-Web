@@ -109,6 +109,8 @@
 		String action = request.getParameter("action");
 		if (action != null && action.equals("runQuery")) {
 			session.setAttribute("run", action);
+			session.setAttribute("colNum", 0);
+			session.setAttribute("rowNum", 0);
 		}
 	}
 	
