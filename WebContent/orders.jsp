@@ -316,8 +316,7 @@
 	else {
 		rs2 = stmt2.executeQuery(withFilter);
 	}
-	Statement stmt4 = conn.createStatement();
-	ResultSet rs4;
+	
 	
 	while (rs2.next()) {
 		String str = "";
@@ -334,8 +333,8 @@
 					+ rs2.getString("id") + "' AND users.state = '" + rs3.getString("state") + "' GROUP BY orders.product_id, users.state";
 		}
 		
-		
-		rs4 = stmt4.executeQuery(str);
+		Statement stmt4 = conn.createStatement();
+		ResultSet rs4 = stmt4.executeQuery(str);
 		
 		if (rs4.next()) { %>
 			<td><%=rs4.getFloat("totalprices")%></td>
