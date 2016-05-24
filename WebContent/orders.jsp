@@ -177,17 +177,25 @@
 </div>
 <% } %>
 <% if (((String)session.getAttribute("run")).equals("runQuery")) { 
+	String noFilter = "";
+	String withFilter = "";
 	
-	String noFilter = "WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
-			+ "AS totalsales FROM orders GROUP BY product_id) SELECT products.id AS id, products.name AS name, col_header.totalsales "
-			+ "AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id "
-			+ orderString + "LIMIT 10 OFFSET " + session.getAttribute("colNum");
+	if (rowsString.equals("Customers")) {
+		noFilter = "WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+				+ "AS totalsales FROM orders GROUP BY product_id) SELECT products.id AS id, products.name AS name, col_header.totalsales "
+				+ "AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id "
+				+ orderString + "LIMIT 10 OFFSET " + session.getAttribute("colNum");
+		
+		withFilter = "WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+				+ "AS totalsales FROM products INNER JOIN orders on orders.product_id = products.id WHERE "
+				+ "products.category_id = " + filterString + " GROUP BY product_id) SELECT products.id AS id, products.name AS name, "
+				+ "col_header.totalsales AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id"
+				+ orderString + "LIMIT 10 OFFSET " + session.getAttribute("colNum");
+	}
 	
-	String withFilter = "WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
-			+ "AS totalsales FROM products INNER JOIN orders on orders.product_id = products.id WHERE "
-			+ "products.category_id = " + filterString + " GROUP BY product_id) SELECT products.id AS id, products.name AS name, "
-			+ "col_header.totalsales AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id"
-			+ orderString + "LIMIT 10 OFFSET " + session.getAttribute("colNum");
+	else if (rowsString.equals("States")) {
+	
+	}
 	
 	Statement stmt2 = conn.createStatement();
 	ResultSet rs2;
@@ -205,16 +213,25 @@
 		<th><%=rs2.getString("name")%> (<%=rs2.getFloat("totalsales") %>)</th>	
 	<% }
 	
-	String noFilter2 = "WITH row_header(id, name, totalsales) AS (SELECT users.id AS id, users.name AS name, "
-			+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders on users.id = orders.user_id "
-			+ "GROUP BY users.id) SELECT DISTINCT LEFT(users.name, 10) AS name, users.id AS id, row_header.totalsales AS totalsales FROM users "
-			+ "INNER JOIN row_header ON row_header.name = users.name" + orderString + "LIMIT 20 OFFSET " + session.getAttribute("rowNum");
+	String noFilter2 = "";
+	String withFilter2 = "";
 	
-	String withFilter2 = "WITH row_header(id, name, totalsales) AS (SELECT users.id AS id, users.name AS name, "
-			+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders on users.id = orders.user_id INNER JOIN "
-			+ "products on orders.product_id = products.id WHERE products.category_id = " + filterString
-			+ " GROUP BY users.id) SELECT DISTINCT LEFT(users.name, 10) AS name, users.id AS id, row_header.totalsales AS totalsales FROM users "
-			+ "INNER JOIN row_header ON row_header.name = users.name" + orderString + "LIMIT 20 OFFSET " + session.getAttribute("rowNum");
+	if (rowsString.equals("Customers")) {
+		noFilter2 = "WITH row_header(id, name, totalsales) AS (SELECT users.id AS id, users.name AS name, "
+				+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders on users.id = orders.user_id "
+				+ "GROUP BY users.id) SELECT DISTINCT LEFT(users.name, 10) AS name, users.id AS id, row_header.totalsales AS totalsales FROM users "
+				+ "INNER JOIN row_header ON row_header.name = users.name" + orderString + "LIMIT 20 OFFSET " + session.getAttribute("rowNum");
+		
+		withFilter2 = "WITH row_header(id, name, totalsales) AS (SELECT users.id AS id, users.name AS name, "
+				+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders on users.id = orders.user_id INNER JOIN "
+				+ "products on orders.product_id = products.id WHERE products.category_id = " + filterString
+				+ " GROUP BY users.id) SELECT DISTINCT LEFT(users.name, 10) AS name, users.id AS id, row_header.totalsales AS totalsales FROM users "
+				+ "INNER JOIN row_header ON row_header.name = users.name" + orderString + "LIMIT 20 OFFSET " + session.getAttribute("rowNum");
+	}
+	
+	else if (rowsString.equals("States")) {
+		
+	}
 	
 	Statement stmt3 = conn.createStatement();
 	ResultSet rs3;
@@ -238,10 +255,20 @@
 	}
 	
 	while (rs2.next()) {
+		String str = "";
+		
+		if (rowsString.equals("Customers")) {
+			str = "SELECT SUM(orders.price) AS totalprices FROM orders where orders.product_id = "
+					+ rs2.getString("id") + " AND orders.user_id = " + rs3.getString("id") + " GROUP BY "
+					+ "orders.product_id, orders.user_id";
+		}
+		
+		else if (rowsString.equals("States")) {
+			
+		}
+		
 		Statement stmt4 = conn.createStatement();
-		ResultSet rs4 = stmt4.executeQuery("SELECT SUM(orders.price) AS totalprices FROM orders where orders.product_id = "
-							+ rs2.getString("id") + " AND orders.user_id = " + rs3.getString("id") + " GROUP BY "
-							+ "orders.product_id, orders.user_id");
+		ResultSet rs4 = stmt4.executeQuery(str);
 		
 		if (rs4.next()) { %>
 			<td><%=rs4.getFloat("totalprices")%></td>
