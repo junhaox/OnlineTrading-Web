@@ -60,16 +60,16 @@
 		if (order.equals("Top-K")) {
 			session.setAttribute("orderString", " ORDER BY totalsales DESC ");
 			session.setAttribute("orderString2", " ORDER BY totalsales DESC ");
-			session.setAttribute("order", "Alphabetical");
+			session.setAttribute("order", "Top-K");
 		}
 		else {
 			if (((String)session.getAttribute("rows")).equals("Customers")) {
 				session.setAttribute("orderString", " ORDER BY name ");
-				session.setAttribute("order", "Top-K");
+				session.setAttribute("order", "Alphabetical");
 			}
 			else if (((String)session.getAttribute("rows")).equals("States")) {
 				session.setAttribute("orderString2", " ORDER BY state ");
-				session.setAttribute("order", "Top-K");
+				session.setAttribute("order", "Alphabetical");
 			}
 		}
 	}
@@ -184,13 +184,23 @@
 	<input type="hidden" name="action" value="runQuery"/>
   	<label for="Rows">Rows:</label>
   	<select name="rows" id="rows" class="form-control">
-	    <option value="Customers">Customers</option>
+	    <option value="<%=session.getAttribute("rows")%>"><%=session.getAttribute("rows")%></option>
+	    <% if (((String)session.getAttribute("rows")).equals("Customers")) { %>
 	    <option value="States">States</option>
+	    <% } 
+	    else if (((String)session.getAttribute("rows")).equals("States")) { %>
+	    <option value="Customers">Customers</option>
+	    <% } %>
 	</select>	
   	<label for="Order">Order:</label>
   	<select name="order" id="order" class="form-control">
-	    <option value="Alphabetical">Alphabetical</option>
+	    <option value="<%=session.getAttribute("order")%>"><%=session.getAttribute("order")%></option>
+	    <% if (((String)session.getAttribute("order")).equals("Alphabetical")) { %>
 	    <option value="Top-K">Top-K</option>
+	    <% } 
+	    else if (((String)session.getAttribute("order")).equals("Top-K")) { %>
+	    <option value="Alphabetical">Alphabetical</option>
+	    <% } %>
 	</select>
 	<label for="Filter">Sales Filtering Option:</label>
   	<select name="filter" id="filter" class="form-control">
@@ -239,13 +249,13 @@
 	
 	if (rowsString.equals("Customers")) {
 		noFilter2 = "WITH row_header(id, name, totalsales) AS (SELECT users.id AS id, users.name AS name, "
-				+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders on users.id = orders.user_id "
+				+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders ON users.id = orders.user_id "
 				+ "GROUP BY users.id) SELECT DISTINCT LEFT(users.name, 10) AS name, users.id AS id, row_header.totalsales AS totalsales FROM users "
 				+ "INNER JOIN row_header ON row_header.name = users.name" + orderString + "LIMIT 20 OFFSET " + session.getAttribute("rowNum");
 		
 		withFilter2 = "WITH row_header(id, name, totalsales) AS (SELECT users.id AS id, users.name AS name, "
-				+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders on users.id = orders.user_id INNER JOIN "
-				+ "products on orders.product_id = products.id WHERE products.category_id = " + filterString
+				+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders ON users.id = orders.user_id INNER JOIN "
+				+ "products ON orders.product_id = products.id WHERE products.category_id = " + filterString
 				+ " GROUP BY users.id) SELECT DISTINCT LEFT(users.name, 10) AS name, users.id AS id, row_header.totalsales AS totalsales FROM users "
 				+ "INNER JOIN row_header ON row_header.name = users.name" + orderString + "LIMIT 20 OFFSET " + session.getAttribute("rowNum");
 	}
@@ -257,8 +267,8 @@
 				+ "INNER JOIN row_header ON row_header.state = users.state" + orderString2 + "LIMIT 20 OFFSET " + session.getAttribute("rowNum");
 		
 		withFilter2 = "WITH row_header(state, totalsales) AS (SELECT users.state AS state, "
-				+ "SUM(orders.price) AS totalsales FROM users, orders WHERE users.id = orders.user_id INNER JOIN "
-				+ "products on orders.product_id = products.id WHERE products.category_id = " + filterString
+				+ "SUM(orders.price) AS totalsales FROM users INNER JOIN orders ON users.id = orders.user_id INNER JOIN "
+				+ "products ON orders.product_id = products.id WHERE products.category_id = " + filterString
 				+ " GROUP BY users.state ORDER BY totalsales DESC) SELECT DISTINCT LEFT(users.state, 10) AS state, users.id AS id, row_header.totalsales AS totalsales FROM users "
 				+ "INNER JOIN row_header ON row_header.state = users.state" + orderString2 + "LIMIT 20 OFFSET " + session.getAttribute("rowNum");
 	}
