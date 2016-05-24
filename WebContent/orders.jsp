@@ -132,41 +132,18 @@
 	if(session.getAttribute("stateNum") == null)
 		session.setAttribute("stateNum", 0);
 	
-	String rowsString = (String)session.getAttribute("rowsString");
-	String orderString = (String)session.getAttribute("orderString");
-	String orderString2 = (String)session.getAttribute("orderString2");
-	String filterString = (String)session.getAttribute("filterString");
-	
 	Statement stmtP = conn.createStatement();
-	ResultSet rsP;
-	if (filterString.equals("All"))
-		rsP = stmtP.executeQuery("SELECT COUNT(*) as num FROM (SELECT name FROM products INNER JOIN orders ON products.id = "
-				+ "orders.product_id GROUP BY name) p");
-	else
-		rsP = stmtP.executeQuery("SELECT COUNT(*) as num FROM (SELECT name FROM products INNER JOIN orders ON products.id = "
-						+ "orders.product_id WHERE products.category_id = " + filterString + " GROUP BY name) p");
+	ResultSet rsP = stmtP.executeQuery("SELECT COUNT(*) as num FROM (SELECT name FROM products GROUP BY name) p");
 	if (rsP.next()) 
 		session.setAttribute("productNum", rsP.getInt("num"));
 	
 	Statement stmtC = conn.createStatement();
-	ResultSet rsC;
-	if (filterString.equals("All"))
-		rsC = stmtC.executeQuery("SELECT COUNT(*) as num FROM (SELECT users.name as name FROM users INNER JOIN orders ON users.id = "
-				+ "orders.user_id GROUP BY users.name) p");
-	else
-		rsC = stmtC.executeQuery("SELECT COUNT(*) as num FROM (SELECT users.name as name FROM users INNER JOIN orders ON users.id = "
-				+ "orders.user_id INNER JOIN products ON products.category_id = " + filterString + " GROUP BY users.name) c");
+	ResultSet rsC = stmtC.executeQuery("SELECT COUNT(*) as num FROM (SELECT name FROM users GROUP BY name) c");
 	if (rsC.next()) 
 		session.setAttribute("customerNum", rsC.getInt("num"));
 	
 	Statement stmtS = conn.createStatement();
-	ResultSet rsS;
-	if (filterString.equals("All"))
-		rsS = stmtS.executeQuery("SELECT COUNT(*) as num FROM (SELECT state FROM users INNER JOIN orders ON users.id = "
-				+ "orders.user_id GROUP BY state) p");
-	else
-		rsS = stmtS.executeQuery("SELECT COUNT(*) as num FROM (SELECT state FROM users INNER JOIN orders ON users.id = "
-				+ "orders.user_id INNER JOIN products ON products.category_id = " + filterString + " GROUP BY state) s");
+	ResultSet rsS = stmtS.executeQuery("SELECT COUNT(*) as num FROM (SELECT state FROM users GROUP BY state) s");
 	if (rsS.next()) 
 		session.setAttribute("stateNum", rsS.getInt("num"));
 	
@@ -178,6 +155,11 @@
 			session.setAttribute("rowNum", 0);
 		}
 	}
+
+	String rowsString = (String)session.getAttribute("rowsString");
+	String orderString = (String)session.getAttribute("orderString");
+	String orderString2 = (String)session.getAttribute("orderString2");
+	String filterString = (String)session.getAttribute("filterString");
 	
 %>
 
