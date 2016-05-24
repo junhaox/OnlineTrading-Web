@@ -25,7 +25,7 @@
 	String rowNext = request.getParameter("rowNext");
 	String colNext = request.getParameter("colNext");
 	String clear = request.getParameter("clear");
-
+	
 	if (clear != null && clear.equals("clicked")) {
 		session.setAttribute("allowedToEdit", "yes");
 		session.setAttribute("run", "not");
@@ -34,6 +34,15 @@
 		session.setAttribute("productNum", 0);
 		session.setAttribute("customerNum", 0);
 	}
+	
+	if (session.getAttribute("rows") == null)
+		session.setAttribute("rows", "Customers");
+	
+	if (session.getAttribute("order") == null)
+		session.setAttribute("order", "Alphabetical");
+	
+	if (session.getAttribute("filter") == null)
+		session.setAttribute("filter", "All");
 	
 	if (rows != null) {
 		if (rows.equals("Customers")) {
@@ -50,11 +59,18 @@
 		session.setAttribute("order", order);
 		if (order.equals("Top-K")) {
 			session.setAttribute("orderString", " ORDER BY totalsales DESC ");
+			session.setAttribute("orderString2", " ORDER BY totalsales DESC ");
 			session.setAttribute("order", "Alphabetical");
 		}
 		else {
-			session.setAttribute("orderString", " ORDER BY name ");
-			session.setAttribute("order", "Top-K");
+			if (((String)session.getAttribute("rows")).equals("Customers")) {
+				session.setAttribute("orderString", " ORDER BY name ");
+				session.setAttribute("order", "Top-K");
+			}
+			else if (((String)session.getAttribute("rows")).equals("States")) {
+				session.setAttribute("orderString2", " ORDER BY state ");
+				session.setAttribute("order", "Top-K");
+			}
 		}
 	}
 	
@@ -77,7 +93,10 @@
 		session.setAttribute("rowsString", "Customers");
 	
 	if (session.getAttribute("orderString") == null)
-		session.setAttribute("orderString", "Alphabetical");
+		session.setAttribute("orderString", " ORDER BY name ");
+	
+	if (session.getAttribute("orderString2") == null)
+		session.setAttribute("orderString2", " ORDER BY state ");
 	
 	if (session.getAttribute("filterString") == null)
 		session.setAttribute("filterString", "All");
@@ -110,15 +129,23 @@
 	if(session.getAttribute("customerNum") == null)
 		session.setAttribute("customerNum", 0);
 	
+	if(session.getAttribute("stateNum") == null)
+		session.setAttribute("stateNum", 0);
+	
 	Statement stmtP = conn.createStatement();
-	ResultSet rsP = stmtP.executeQuery("SELECT COUNT(*) as num FROM (SELECT name FROM products GROUP BY name) product");
+	ResultSet rsP = stmtP.executeQuery("SELECT COUNT(*) as num FROM (SELECT name FROM products GROUP BY name) p");
 	if (rsP.next()) 
 		session.setAttribute("productNum", rsP.getInt("num"));
 	
 	Statement stmtC = conn.createStatement();
-	ResultSet rsC = stmtC.executeQuery("SELECT COUNT(*) as num FROM (SELECT name FROM users GROUP BY name) customer");
+	ResultSet rsC = stmtC.executeQuery("SELECT COUNT(*) as num FROM (SELECT name FROM users GROUP BY name) c");
 	if (rsC.next()) 
 		session.setAttribute("customerNum", rsC.getInt("num"));
+	
+	Statement stmtS = conn.createStatement();
+	ResultSet rsS = stmtS.executeQuery("SELECT COUNT(*) as num FROM (SELECT state FROM users GROUP BY state) s");
+	if (rsS.next()) 
+		session.setAttribute("stateNum", rsS.getInt("num"));
 	
 	if ("POST".equalsIgnoreCase(request.getMethod())) {
 		String action = request.getParameter("action");
@@ -131,6 +158,7 @@
 
 	String rowsString = (String)session.getAttribute("rowsString");
 	String orderString = (String)session.getAttribute("orderString");
+	String orderString2 = (String)session.getAttribute("orderString2");
 	String filterString = (String)session.getAttribute("filterString");
 	
 %>
@@ -177,25 +205,18 @@
 </div>
 <% } %>
 <% if (((String)session.getAttribute("run")).equals("runQuery")) { 
-	String noFilter = "";
-	String withFilter = "";
 	
-	if (rowsString.equals("Customers")) {
-		noFilter = "WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+	String noFilter = "WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
 				+ "AS totalsales FROM orders GROUP BY product_id) SELECT products.id AS id, products.name AS name, col_header.totalsales "
 				+ "AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id "
 				+ orderString + "LIMIT 10 OFFSET " + session.getAttribute("colNum");
 		
-		withFilter = "WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
+	String withFilter = "WITH col_header(product_id, totalsales) AS (SELECT product_id, SUM(orders.price) "
 				+ "AS totalsales FROM products INNER JOIN orders on orders.product_id = products.id WHERE "
 				+ "products.category_id = " + filterString + " GROUP BY product_id) SELECT products.id AS id, products.name AS name, "
 				+ "col_header.totalsales AS totalsales FROM products INNER JOIN col_header ON products.id = col_header.product_id"
 				+ orderString + "LIMIT 10 OFFSET " + session.getAttribute("colNum");
-	}
 	
-	else if (rowsString.equals("States")) {
-	
-	}
 	
 	Statement stmt2 = conn.createStatement();
 	ResultSet rs2;
@@ -230,7 +251,16 @@
 	}
 	
 	else if (rowsString.equals("States")) {
+		noFilter2 = "WITH row_header(state, totalsales) AS (SELECT users.state AS state, "
+				+ "SUM(orders.price) AS totalsales FROM users, orders WHERE users.id = orders.user_id "
+				+ "GROUP BY users.state ORDER BY totalsales DESC) SELECT DISTINCT LEFT(users.state, 10) AS state, users.id AS id, row_header.totalsales AS totalsales FROM users "
+				+ "INNER JOIN row_header ON row_header.state = users.state" + orderString2 + "LIMIT 20 OFFSET " + session.getAttribute("rowNum");
 		
+		withFilter2 = "WITH row_header(state, totalsales) AS (SELECT users.state AS state, "
+				+ "SUM(orders.price) AS totalsales FROM users, orders WHERE users.id = orders.user_id INNER JOIN "
+				+ "products on orders.product_id = products.id WHERE products.category_id = " + filterString
+				+ " GROUP BY users.state ORDER BY totalsales DESC) SELECT DISTINCT LEFT(users.state, 10) AS state, users.id AS id, row_header.totalsales AS totalsales FROM users "
+				+ "INNER JOIN row_header ON row_header.state = users.state" + orderString2 + "LIMIT 20 OFFSET " + session.getAttribute("rowNum");
 	}
 	
 	Statement stmt3 = conn.createStatement();
@@ -245,7 +275,12 @@
 	
 	while (rs3.next()) { %>
 		<tr>
+		<% if (rowsString.equals("Customers")) { %>
 			<th><%=rs3.getString("name") %>(<%=rs3.getFloat("totalsales") %>)</th>
+		<% }
+			else { %>
+			<th><%=rs3.getString("state") %>(<%=rs3.getFloat("totalsales") %>)</th>
+		<% } %>
 	<% 		
 	if (filterString.equals("All")) {
 		rs2 = stmt2.executeQuery(noFilter);
@@ -258,13 +293,15 @@
 		String str = "";
 		
 		if (rowsString.equals("Customers")) {
-			str = "SELECT SUM(orders.price) AS totalprices FROM orders where orders.product_id = "
+			str = "SELECT SUM(orders.price) AS totalprices FROM orders WHERE orders.product_id = "
 					+ rs2.getString("id") + " AND orders.user_id = " + rs3.getString("id") + " GROUP BY "
 					+ "orders.product_id, orders.user_id";
 		}
 		
 		else if (rowsString.equals("States")) {
-			
+			str = "SELECT SUM(orders.price) AS totalprices FROM orders INNER JOIN users ON users.id = orders.user_id INNER JOIN "
+					+ "products on products.id = orders.product_id WHERE orders.product_id = '"
+					+ rs2.getString("id") + "' AND users.state = '" + rs3.getString("state") + "' GROUP BY orders.product_id, users.state";
 		}
 		
 		Statement stmt4 = conn.createStatement();
@@ -291,12 +328,23 @@
 	<% } %>
 	</form>
 	<form action="orders.jsp" method="POST">
-	<% if ((Integer)session.getAttribute("rowNum") + 20 <= (Integer)session.getAttribute("customerNum")) { %>
+	<% if (rowsString.equals("Customers")) {
+			if ((Integer)session.getAttribute("rowNum") + 20 <= (Integer)session.getAttribute("customerNum")) { %>
 		<td>
 			<input type="hidden" name="rowNext" value="clicked" />
 			<input class="btn btn-primary" type="submit" value="Next 20 Customers" />
 		</td> 
-	<% } %>
+	<%  	}
+	   }
+	   else if (rowsString.equals("States")) { 
+		   if ((Integer)session.getAttribute("rowNum") + 20 <= (Integer)session.getAttribute("stateNum")) { %>
+			<td>
+				<input type="hidden" name="rowNext" value="clicked" />
+				<input class="btn btn-primary" type="submit" value="Next 20 States" />
+			</td> 
+		<% }
+	   }
+	%> 
 	</form>
 	<form action="orders.jsp" method="POST">
 		<td>
