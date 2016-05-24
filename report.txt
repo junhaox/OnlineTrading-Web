@@ -1,0 +1,1 @@
+"SELECT SUM(orders.price) AS totalprices FROM orders INNER JOIN users ON users.id = orders.user_id INNER JOIN products on products.id = orders.product_id WHERE orders.product_id = '" + rs2.getString("id") + "' AND users.state = '" + rs3.getString("state") + "' GROUP BY orders.product_id, users.state"
