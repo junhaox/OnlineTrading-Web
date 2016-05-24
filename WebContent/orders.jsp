@@ -152,7 +152,7 @@
 	ResultSet rsC = null;
 	if (filterString.equals("All"))
 		rsC = stmtC.executeQuery("SELECT COUNT(*) as num FROM (SELECT users.name as name FROM users INNER JOIN orders ON users.id = "
-						+ "orders.user_id GROUP BY users.name) p");
+						+ "orders.user_id GROUP BY users.name) c");
 	else
 		rsC = stmtC.executeQuery("SELECT COUNT(*) as num FROM (SELECT users.name as name FROM users INNER JOIN orders ON users.id = "
 						+ "orders.user_id INNER JOIN products ON products.category_id = " + filterString + " GROUP BY users.name) c");
@@ -163,7 +163,7 @@
 	ResultSet rsS = null;
 	if (filterString.equals("All"))
 		rsS = stmtS.executeQuery("SELECT COUNT(*) as num FROM (SELECT state FROM users INNER JOIN orders ON users.id = "
-						+ "orders.user_id GROUP BY state) p");
+						+ "orders.user_id GROUP BY state) s");
 	else
 		rsS = stmtS.executeQuery("SELECT COUNT(*) as num FROM (SELECT state FROM users INNER JOIN orders ON users.id = "
 						+ "orders.user_id INNER JOIN products ON products.category_id = " + filterString + " GROUP BY state) s");
